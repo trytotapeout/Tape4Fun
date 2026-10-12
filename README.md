@@ -1,6 +1,6 @@
-# Blonskr Fans
+# Tape4Fun
 
-An independent, bilingual fan archive covering Blonskr's public projects and the TapeOut ecosystem.
+An independent bilingual reference to TapeOut infrastructure and valuable products across its surrounding ecosystem.
 
 The site is a static website with English and Simplified Chinese pages under `en/` and `zh-cn/`. Images and other local assets live in `assets/`.
 
@@ -12,4 +12,4 @@ npx http-server .
 
 Then open <http://localhost:8000/>.
 
-This is an unofficial archive. Please verify technical details and current parameters against the official contracts and websites.
+The site explains public information and links to primary sources. Verify technical details, live parameters, and product status against official contracts and websites.
