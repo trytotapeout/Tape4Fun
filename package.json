@@ -1,0 +1,22 @@
+{
+  "name": "tape4fun",
+  "version": "1.0.0",
+  "description": "An independent bilingual reference to TapeOut infrastructure and valuable products across its surrounding ecosystem.",
+  "scripts": {
+    "dev": "http-server . -p 8000 -c-1",
+    "build": "node scripts/build.mjs",
+    "preview": "http-server dist -p 8000 -c-1"
+  },
+  "devDependencies": {
+    "clean-css": "^5.3.3",
+    "html-minifier-terser": "^7.2.0",
+    "http-server": "^14.1.1",
+    "sharp": "^0.35.5",
+    "svgo": "^3.3.5",
+    "terser": "^5.51.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20.9"
+  }
+}

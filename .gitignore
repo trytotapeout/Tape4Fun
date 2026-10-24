@@ -4,3 +4,7 @@
 
 # Local web-research cache
 .firecrawl/
+
+# Node dependencies and generated site
+node_modules/
+dist/
