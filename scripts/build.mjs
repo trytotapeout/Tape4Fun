@@ -68,22 +68,65 @@ for (const file of files.sort()) {
   console.log(`${file}: ${input.length.toLocaleString()} → ${size.toLocaleString()} bytes`);
 }
 
-// Hash the final bytes before adding the release path. Internal relative links
-// stay together inside the release; only the mutable root entry needs rewriting.
+// Do not upload image archives that no built page or script references.
+const references = [...outputs]
+  .filter(([file]) => /\.(html|css|js|svg)$/.test(file))
+  .map(([, content]) => content.toString()).join('\n');
+const referencedAssets = new Set(references.match(/assets\/[\w./-]+/g) ?? []);
+for (const [file, content] of outputs) {
+  if (file.startsWith('assets/') && /\.(webp|svg|gif|avif|ico)$/i.test(file)
+    && !referencedAssets.has(file)) {
+    outputs.delete(file);
+    after -= content.length;
+    console.log(`Omitted unused image: ${file}`);
+  }
+}
+
+// Assets keep their own immutable paths across page-only releases.
+const assetPaths = new Map();
+const assets = new Map();
+for (const [file, content] of outputs) {
+  if (!file.startsWith('assets/')) continue;
+  const hash = createHash('sha256').update(content).digest('hex');
+  const destination = `assets/${hash}/${path.posix.basename(file)}`;
+  assetPaths.set(file, destination);
+  assets.set(destination, content);
+}
+
+function rewriteAssets(text, sourceFile, destinationFile) {
+  return text.replace(/(?:\.\.?\/)*assets\/[\w./-]+/g, (reference) => {
+    const original = path.posix.normalize(path.posix.join(path.posix.dirname(sourceFile), reference));
+    const target = assetPaths.get(original);
+    if (!target) return reference;
+    const relative = path.posix.relative(path.posix.dirname(destinationFile), target);
+    return relative.startsWith('.') ? relative : `./${relative}`;
+  });
+}
+
+const entrySource = outputs.get('index.html').toString();
+outputs = new Map([...outputs]
+  .filter(([file]) => !file.startsWith('assets/'))
+  .map(([file, content]) => [file, Buffer.from(rewriteAssets(
+    content.toString(), file, `releases/pending/${file}`,
+  ))]));
+
+// Hash pages after resolving shared assets. A page change no longer versions
+// unchanged images and scripts. Relative page navigation stays within a release.
 const hash = createHash('sha256');
 for (const [file, content] of outputs) {
   hash.update(JSON.stringify([file, content.length]));
   hash.update(content);
 }
 const release = `releases/${hash.digest('hex')}`;
-const entry = outputs.get('index.html').toString().replace(
-  /\b(href|src)=(['"])\.\/(en|zh-cn|assets)\//g,
+const entry = rewriteAssets(entrySource, 'index.html', 'index.html').replace(
+  /\b(href|src)=(['"])\.\/(en|zh-cn)\//g,
   `$1=$2./${release}/$3/`,
 );
-after += Buffer.byteLength(entry);
 // Keep a versioned entry too: language pages link to ../index.html.
 outputs = new Map([...outputs].map(([file, content]) => [`${release}/${file}`, content]));
+for (const item of assets) outputs.set(...item);
 outputs.set('index.html', Buffer.from(entry));
+after = [...outputs.values()].reduce((total, content) => total + content.length, 0);
 
 for (const [file, content] of outputs) {
   const destination = path.join(dist, file);

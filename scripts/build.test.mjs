@@ -67,9 +67,11 @@ test('default builds retain links and route into immutable releases', async () =
     await build();
     const first = await snapshot(path.join(fixture, 'dist'));
     checkLinks(first);
-    const script = [...first.keys()].find((file) => file.endsWith('/assets/language.js'));
-    assert.match(script, /^releases\/[a-f0-9]{64}\/assets\/language\.js$/);
-    assert.deepEqual([...first.keys()].filter((file) => !file.startsWith('releases/')), ['index.html']);
+    const script = [...first.keys()].find((file) => file.endsWith('/language.js'));
+    assert.match(script, /^assets\/[a-f0-9]{64}\/language\.js$/);
+    assert.deepEqual([...first.keys()].filter((file) => !/^(releases|assets)\//.test(file)), ['index.html']);
+    assert.ok([...first.keys()].some((file) => file.endsWith('/tapeout-logo.jpg.webp')));
+    assert.ok(![...first.keys()].some((file) => file.endsWith('/tapqq-v1-mobile.jpg.webp')));
     checkRouter(first, 'https://test.invalid/', script);
     checkRouter(first, 'https://test.invalid/subsite/index.html', script);
     await writeFile(path.join(fixture, 'dist/stale.html'), 'stale build artifact');
@@ -81,8 +83,23 @@ test('default builds retain links and route into immutable releases', async () =
     const second = await snapshot(path.join(fixture, 'dist'));
     checkLinks(second);
     assert.notEqual(second.get('index.html'), first.get('index.html'));
+    const firstAssets = new Map([...first].filter(([file]) => file.startsWith('assets/')));
+    const secondAssets = new Map([...second].filter(([file]) => file.startsWith('assets/')));
+    assert.deepEqual(secondAssets, firstAssets, 'page edits reuse every unchanged asset');
     for (const [file, content] of second) {
       if (file !== 'index.html' && first.has(file)) assert.equal(content, first.get(file));
+    }
+    const sourceScript = path.join(fixture, 'assets/language.js');
+    await writeFile(sourceScript, (await readFile(sourceScript, 'utf8')) + '\nglobalThis.buildTest = true;');
+    await build();
+    const third = await snapshot(path.join(fixture, 'dist'));
+    checkLinks(third);
+    const nextScript = [...third.keys()].find((file) => file.endsWith('/language.js'));
+    assert.notEqual(nextScript, script, 'changed scripts receive a new immutable path');
+    checkRouter(third, 'https://test.invalid/', nextScript);
+    for (const [file, content] of firstAssets) {
+      if (file === script) continue;
+      assert.equal(third.get(file), content, 'script edits still reuse unchanged images');
     }
   } finally {
     await rm(fixture, { recursive: true, force: true });
