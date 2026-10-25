@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { minify as minifyHtml } from 'html-minifier-terser';
 import { minify as minifyJs } from 'terser';
 import CleanCSS from 'clean-css';
@@ -8,7 +9,9 @@ import sharp from 'sharp';
 import { optimize } from 'svgo';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dist = path.join(root, 'dist');
+const chain = process.argv.includes('--chain');
+const outputDirectory = chain ? 'dist-chain' : 'dist';
+const dist = path.join(root, outputDirectory);
 const files = [];
 
 async function collect(relative) {
@@ -34,6 +37,7 @@ function rewriteImages(text) {
 await rm(dist, { recursive: true, force: true });
 let before = 0;
 let after = 0;
+let outputs = new Map();
 for (const file of files.sort()) {
   const input = await readFile(path.join(root, file));
   const extension = path.extname(file).toLowerCase();
@@ -58,12 +62,36 @@ for (const file of files.sort()) {
     output = optimize(input.toString(), { path: file, multipass: true }).data;
     if (Buffer.byteLength(output) >= input.length) output = input;
   }
-  const destination = path.join(dist, imagePaths.get(file) ?? file);
-  await mkdir(path.dirname(destination), { recursive: true });
-  await writeFile(destination, output);
+  outputs.set(imagePaths.get(file) ?? file, Buffer.from(output));
   const size = Buffer.byteLength(output);
   before += input.length;
   after += size;
   console.log(`${file}: ${input.length.toLocaleString()} → ${size.toLocaleString()} bytes`);
 }
-console.log(`\nBuilt ${files.length} files in dist: ${(before / 1024).toFixed(1)} → ${(after / 1024).toFixed(1)} KiB (${((1 - after / before) * 100).toFixed(1)}% smaller)`);
+
+// Hash the final bytes before adding the release path. Internal relative links
+// stay together inside the release; only the mutable root entry needs rewriting.
+let release;
+if (chain) {
+  const hash = createHash('sha256');
+  for (const [file, content] of outputs) {
+    hash.update(JSON.stringify([file, content.length]));
+    hash.update(content);
+  }
+  release = `releases/${hash.digest('hex')}`;
+  const entry = outputs.get('index.html').toString().replace(
+    /\b(href|src)=(['"])\.\/(en|zh-cn|assets)\//g,
+    `$1=$2./${release}/$3/`,
+  );
+  after += Buffer.byteLength(entry);
+  // Keep a versioned entry too: language pages link to ../index.html.
+  outputs = new Map([...outputs].map(([file, content]) => [`${release}/${file}`, content]));
+  outputs.set('index.html', Buffer.from(entry));
+}
+for (const [file, content] of outputs) {
+  const destination = path.join(dist, file);
+  await mkdir(path.dirname(destination), { recursive: true });
+  await writeFile(destination, content);
+}
+console.log(`\nBuilt ${outputs.size} files in ${outputDirectory}: ${(before / 1024).toFixed(1)} → ${(after / 1024).toFixed(1)} KiB (${((1 - after / before) * 100).toFixed(1)}% smaller)`);
+if (chain) console.log(`Chain release: ${release}`);

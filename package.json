@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "http-server . -p 8000 -c-1",
     "build": "node scripts/build.mjs",
-    "preview": "http-server dist -p 8000 -c-1"
+    "build:chain": "node scripts/build.mjs --chain",
+    "test:build": "node --test scripts/build.test.mjs",
+    "preview": "http-server dist -p 8000 -c-1",
+    "preview:chain": "http-server dist-chain -p 8000 -c-1"
   },
   "devDependencies": {
     "clean-css": "^5.3.3",

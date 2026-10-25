@@ -5,7 +5,12 @@
   if (document.body.dataset.languageRouter === "true") {
     const browserLanguage = navigator.language.toLowerCase();
     const language = supported.has(saved) ? saved : browserLanguage.startsWith("zh") ? "zh-cn" : "en";
-    location.replace(`./${language}/index.html${location.hash}`);
+    const entry = document.querySelector(`[data-language-link="${language}"]`);
+    if (entry) {
+      const url = new URL(entry.href);
+      url.hash = location.hash;
+      location.replace(url.href);
+    }
     return;
   }
 

@@ -31,3 +31,12 @@ The build recreates `dist/` with the same page directories and relative links. I
 Upload the **contents of `dist/`** to your static web host. `deploy.sh` builds first and uploads this directory to the existing server (it also retains the existing Git commit/push steps). Node.js is only needed locally to build; the server serves static files. Gzip/Brotli transport compression can additionally be enabled on the host.
 
 The site explains public information and links to primary sources. Verify technical details, live parameters, and product status against official contracts and websites.
+
+For chain hosting that only allows replacing the root `index.html`, use:
+
+```bash
+npm run build:chain
+npm run preview:chain
+```
+
+Upload the **contents of `dist-chain/`**, with `index.html` at the upload root. All other files live under `releases/<SHA-256>/`. The hash comes from the complete compiled site: identical builds reuse the same paths and bytes; a changed build gets a new release directory. Root links and automatic language routing point to that release, while navigation, language switches, and assets keep their relative paths within it. Publish the release files before replacing the root entry if uploading in stages. Keep older releases on chain so existing links continue working. Regular `npm run build` and server deployment still use `dist/`.

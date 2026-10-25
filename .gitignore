@@ -8,3 +8,4 @@
 # Node dependencies and generated site
 node_modules/
 dist/
+dist-chain/
