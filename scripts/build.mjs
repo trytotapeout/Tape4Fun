@@ -9,8 +9,7 @@ import sharp from 'sharp';
 import { optimize } from 'svgo';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const chain = process.argv.includes('--chain');
-const outputDirectory = chain ? 'dist-chain' : 'dist';
+const outputDirectory = 'dist';
 const dist = path.join(root, outputDirectory);
 const files = [];
 
@@ -71,27 +70,25 @@ for (const file of files.sort()) {
 
 // Hash the final bytes before adding the release path. Internal relative links
 // stay together inside the release; only the mutable root entry needs rewriting.
-let release;
-if (chain) {
-  const hash = createHash('sha256');
-  for (const [file, content] of outputs) {
-    hash.update(JSON.stringify([file, content.length]));
-    hash.update(content);
-  }
-  release = `releases/${hash.digest('hex')}`;
-  const entry = outputs.get('index.html').toString().replace(
-    /\b(href|src)=(['"])\.\/(en|zh-cn|assets)\//g,
-    `$1=$2./${release}/$3/`,
-  );
-  after += Buffer.byteLength(entry);
-  // Keep a versioned entry too: language pages link to ../index.html.
-  outputs = new Map([...outputs].map(([file, content]) => [`${release}/${file}`, content]));
-  outputs.set('index.html', Buffer.from(entry));
+const hash = createHash('sha256');
+for (const [file, content] of outputs) {
+  hash.update(JSON.stringify([file, content.length]));
+  hash.update(content);
 }
+const release = `releases/${hash.digest('hex')}`;
+const entry = outputs.get('index.html').toString().replace(
+  /\b(href|src)=(['"])\.\/(en|zh-cn|assets)\//g,
+  `$1=$2./${release}/$3/`,
+);
+after += Buffer.byteLength(entry);
+// Keep a versioned entry too: language pages link to ../index.html.
+outputs = new Map([...outputs].map(([file, content]) => [`${release}/${file}`, content]));
+outputs.set('index.html', Buffer.from(entry));
+
 for (const [file, content] of outputs) {
   const destination = path.join(dist, file);
   await mkdir(path.dirname(destination), { recursive: true });
   await writeFile(destination, content);
 }
 console.log(`\nBuilt ${outputs.size} files in ${outputDirectory}: ${(before / 1024).toFixed(1)} → ${(after / 1024).toFixed(1)} KiB (${((1 - after / before) * 100).toFixed(1)}% smaller)`);
-if (chain) console.log(`Chain release: ${release}`);
+console.log(`Release: ${release}`);

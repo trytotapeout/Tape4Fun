@@ -56,7 +56,7 @@ function checkRouter(files, base = 'https://test.invalid/', script = 'assets/lan
   }
 }
 
-test('normal and immutable chain builds retain links and route into the current release', async () => {
+test('default builds retain links and route into immutable releases', async () => {
   const fixture = await mkdtemp(path.join(tmpdir(), 'tape4fun-build-'));
   try {
     for (const name of ['index.html', 'en', 'zh-cn', 'assets', 'scripts']) {
@@ -65,29 +65,25 @@ test('normal and immutable chain builds retain links and route into the current 
     await symlink(path.join(root, 'node_modules'), path.join(fixture, 'node_modules'), 'dir');
     const build = (...args) => run(process.execPath, ['scripts/build.mjs', ...args], { cwd: fixture });
     await build();
-    const normal = await snapshot(path.join(fixture, 'dist'));
-    checkLinks(normal);
-    checkRouter(normal);
-    await build('--chain');
-    const first = await snapshot(path.join(fixture, 'dist-chain'));
+    const first = await snapshot(path.join(fixture, 'dist'));
     checkLinks(first);
     const script = [...first.keys()].find((file) => file.endsWith('/assets/language.js'));
     assert.match(script, /^releases\/[a-f0-9]{64}\/assets\/language\.js$/);
     assert.deepEqual([...first.keys()].filter((file) => !file.startsWith('releases/')), ['index.html']);
     checkRouter(first, 'https://test.invalid/', script);
     checkRouter(first, 'https://test.invalid/subsite/index.html', script);
-    await build('--chain');
-    assert.deepEqual(await snapshot(path.join(fixture, 'dist-chain')), first);
+    await writeFile(path.join(fixture, 'dist/stale.html'), 'stale build artifact');
+    await build();
+    assert.deepEqual(await snapshot(path.join(fixture, 'dist')), first);
     const changed = path.join(fixture, 'en/index.html');
     await writeFile(changed, (await readFile(changed, 'utf8')).replace('TAPE4FUN', 'Tape4Fun updated'));
-    await build('--chain');
-    const second = await snapshot(path.join(fixture, 'dist-chain'));
+    await build();
+    const second = await snapshot(path.join(fixture, 'dist'));
     checkLinks(second);
     assert.notEqual(second.get('index.html'), first.get('index.html'));
     for (const [file, content] of second) {
       if (file !== 'index.html' && first.has(file)) assert.equal(content, first.get(file));
     }
-    assert.deepEqual(await snapshot(path.join(fixture, 'dist')), normal);
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
