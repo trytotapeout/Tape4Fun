@@ -124,6 +124,14 @@ const entry = rewriteAssets(entrySource, 'index.html', 'index.html').replace(
 );
 // Keep a versioned entry too: language pages link to ../index.html.
 outputs = new Map([...outputs].map(([file, content]) => [`${release}/${file}`, content]));
+// Replace pre-versioning URLs with small entry pages for the current release.
+// These paths stay mutable; the release files above remain immutable.
+for (const file of files.filter((file) => /^(en|zh-cn)\/.*\.html$/.test(file))) {
+  const target = path.posix.relative(path.posix.dirname(file), `${release}/${file}`);
+  const language = file.startsWith('zh-cn/') ? 'zh-CN' : 'en';
+  const label = language === 'zh-CN' ? '打开最新页面' : 'Open the latest page';
+  outputs.set(file, Buffer.from(`<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0;url=${target}"><title>Tape4Fun</title></head><body><a href="${target}">${label}</a><script>location.replace(${JSON.stringify(target)}+location.search+location.hash)</script></body></html>`));
+}
 for (const item of assets) outputs.set(...item);
 outputs.set('index.html', Buffer.from(entry));
 after = [...outputs.values()].reduce((total, content) => total + content.length, 0);

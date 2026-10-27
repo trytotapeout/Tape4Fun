@@ -56,6 +56,25 @@ function checkRouter(files, base = 'https://test.invalid/', script = 'assets/lan
   }
 }
 
+function checkLegacyEntries(files) {
+  const entry = files.get('index.html');
+  const release = entry.match(/\.\/(releases\/[a-f0-9]{64})\//)[1];
+  for (const [file, html] of files) {
+    if (!/^(en|zh-cn)\/.*\.html$/.test(file)) continue;
+    assert.match(html, /http-equiv="refresh"/);
+    let destination;
+    const redirect = html.match(/<script>(.*?)<\/script>/)[1];
+    vm.runInNewContext(redirect, {
+      location: { search: '?source=bookmark', hash: '#projects', replace: (url) => { destination = url; } },
+    });
+    const url = new URL(destination, `https://test.invalid/subsite/${file}`);
+    assert.equal(url.pathname, `/subsite/${release}/${file}`);
+    assert.equal(url.search, '?source=bookmark');
+    assert.equal(url.hash, '#projects');
+    assert.ok(files.has(`${release}/${file}`));
+  }
+}
+
 test('default builds retain links and route into immutable releases', async () => {
   const fixture = await mkdtemp(path.join(tmpdir(), 'tape4fun-build-'));
   try {
@@ -69,7 +88,9 @@ test('default builds retain links and route into immutable releases', async () =
     checkLinks(first);
     const script = [...first.keys()].find((file) => file.endsWith('/language.js'));
     assert.match(script, /^assets\/[a-f0-9]{64}\/language\.js$/);
-    assert.deepEqual([...first.keys()].filter((file) => !/^(releases|assets)\//.test(file)), ['index.html']);
+    assert.ok(first.has('en/ecosystem.html'));
+    assert.ok(first.has('zh-cn/ecosystem.html'));
+    checkLegacyEntries(first);
     assert.ok([...first.keys()].some((file) => file.endsWith('/tapeout-logo.jpg.webp')));
     assert.ok(![...first.keys()].some((file) => file.endsWith('/tapqq-v1-mobile.jpg.webp')));
     checkRouter(first, 'https://test.invalid/', script);
@@ -82,12 +103,14 @@ test('default builds retain links and route into immutable releases', async () =
     await build();
     const second = await snapshot(path.join(fixture, 'dist'));
     checkLinks(second);
+    checkLegacyEntries(second);
+    assert.notEqual(second.get('zh-cn/ecosystem.html'), first.get('zh-cn/ecosystem.html'));
     assert.notEqual(second.get('index.html'), first.get('index.html'));
     const firstAssets = new Map([...first].filter(([file]) => file.startsWith('assets/')));
     const secondAssets = new Map([...second].filter(([file]) => file.startsWith('assets/')));
     assert.deepEqual(secondAssets, firstAssets, 'page edits reuse every unchanged asset');
     for (const [file, content] of second) {
-      if (file !== 'index.html' && first.has(file)) assert.equal(content, first.get(file));
+      if (/^(releases|assets)\//.test(file) && first.has(file)) assert.equal(content, first.get(file));
     }
     const sourceScript = path.join(fixture, 'assets/language.js');
     await writeFile(sourceScript, (await readFile(sourceScript, 'utf8')) + '\nglobalThis.buildTest = true;');
