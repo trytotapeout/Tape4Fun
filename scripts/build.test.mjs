@@ -56,29 +56,10 @@ function checkRouter(files, base = 'https://test.invalid/', script = 'assets/lan
   }
 }
 
-function checkLegacyEntries(files) {
-  const entry = files.get('index.html');
-  const release = entry.match(/\.\/(releases\/[a-f0-9]{64})\//)[1];
-  for (const [file, html] of files) {
-    if (!/^(en|zh-cn)\/.*\.html$/.test(file)) continue;
-    assert.match(html, /http-equiv="refresh"/);
-    let destination;
-    const redirect = html.match(/<script>(.*?)<\/script>/)[1];
-    vm.runInNewContext(redirect, {
-      location: { search: '?source=bookmark', hash: '#projects', replace: (url) => { destination = url; } },
-    });
-    const url = new URL(destination, `https://test.invalid/subsite/${file}`);
-    assert.equal(url.pathname, `/subsite/${release}/${file}`);
-    assert.equal(url.search, '?source=bookmark');
-    assert.equal(url.hash, '#projects');
-    assert.ok(files.has(`${release}/${file}`));
-  }
-}
-
 function checkBrandHomeLinks(files) {
   let checked = 0;
   for (const [file, html] of files) {
-    if (!/^releases\/[^/]+\/(en|zh-cn)\/.*\.html$/.test(file)) continue;
+    if (!/^(?:releases\/[^/]+\/)?(en|zh-cn)\/.*\.html$/.test(file)) continue;
     const link = html.match(/<a class="site-brand" href="([^"]+)"/);
     assert.ok(link, `missing brand link: ${file}`);
     for (const base of ['https://test.invalid/', 'https://test.invalid/subsite/']) {
@@ -89,39 +70,55 @@ function checkBrandHomeLinks(files) {
   assert.ok(checked >= 14);
 }
 
-test('default builds retain links and route into immutable releases', async () => {
+for (const target of ['web', 'chain']) test(`${target} builds preserve navigation and independently version assets`, async () => {
   const fixture = await mkdtemp(path.join(tmpdir(), 'tape4fun-build-'));
   try {
     for (const name of ['index.html', 'en', 'zh-cn', 'assets', 'scripts']) {
       await cp(path.join(root, name), path.join(fixture, name), { recursive: true });
     }
     await symlink(path.join(root, 'node_modules'), path.join(fixture, 'node_modules'), 'dir');
-    const build = (...args) => run(process.execPath, ['scripts/build.mjs', ...args], { cwd: fixture });
+    const build = (...args) => run(process.execPath, ['scripts/build.mjs', `--target=${target}`, ...args], { cwd: fixture });
     await build();
-    const first = await snapshot(path.join(fixture, 'dist'));
+    const first = await snapshot(path.join(fixture, 'dist', target));
     checkLinks(first);
     const script = [...first.keys()].find((file) => file.endsWith('/language.js'));
     assert.match(script, /^assets\/[a-f0-9]{64}\/language\.js$/);
-    assert.ok(first.has('en/ecosystem.html'));
-    assert.ok(first.has('zh-cn/ecosystem.html'));
-    checkLegacyEntries(first);
+    if (target === 'web') {
+      assert.ok(first.has('en/ecosystem.html'));
+      assert.ok(first.has('zh-cn/ecosystem.html'));
+      assert.ok(![...first.keys()].some((file) => file.startsWith('releases/')));
+      assert.match(first.get('zh-cn/ecosystem.html'), /<h3>tapeXO<\/h3>/);
+      assert.match(first.get('zh-cn/tapecode.html'), /2114953578062508325/);
+      for (const [file, html] of first) {
+        if (file.endsWith('.html')) assert.doesNotMatch(html, /releases\/|http-equiv="refresh"/);
+      }
+    } else {
+      assert.deepEqual([...first.keys()].filter((file) => !/^(releases|assets)\//.test(file)), ['index.html']);
+    }
     checkBrandHomeLinks(first);
     assert.ok([...first.keys()].some((file) => file.endsWith('/tapeout-logo.jpg.webp')));
     assert.ok(![...first.keys()].some((file) => file.endsWith('/tapqq-v1-mobile.jpg.webp')));
     checkRouter(first, 'https://test.invalid/', script);
     checkRouter(first, 'https://test.invalid/subsite/index.html', script);
-    await writeFile(path.join(fixture, 'dist/stale.html'), 'stale build artifact');
+    const other = target === 'web' ? 'chain' : 'web';
+    await run(process.execPath, ['scripts/build.mjs', `--target=${other}`], { cwd: fixture });
+    assert.deepEqual(await snapshot(path.join(fixture, 'dist', target)), first, 'the other build target leaves this output intact');
+    await writeFile(path.join(fixture, 'dist', target, 'stale.html'), 'stale build artifact');
     await build();
-    assert.deepEqual(await snapshot(path.join(fixture, 'dist')), first);
+    assert.deepEqual(await snapshot(path.join(fixture, 'dist', target)), first);
     const changed = path.join(fixture, 'en/index.html');
     await writeFile(changed, (await readFile(changed, 'utf8')).replace('TAPE4FUN', 'Tape4Fun updated'));
     await build();
-    const second = await snapshot(path.join(fixture, 'dist'));
+    const second = await snapshot(path.join(fixture, 'dist', target));
     checkLinks(second);
-    checkLegacyEntries(second);
     checkBrandHomeLinks(second);
-    assert.notEqual(second.get('zh-cn/ecosystem.html'), first.get('zh-cn/ecosystem.html'));
-    assert.notEqual(second.get('index.html'), first.get('index.html'));
+    if (target === 'web') {
+      assert.equal(second.get('index.html'), first.get('index.html'), 'page edits keep the same language entry URLs');
+      assert.notEqual(second.get('en/index.html'), first.get('en/index.html'));
+      assert.equal(second.get('zh-cn/ecosystem.html'), first.get('zh-cn/ecosystem.html'));
+    } else {
+      assert.notEqual(second.get('index.html'), first.get('index.html'));
+    }
     const firstAssets = new Map([...first].filter(([file]) => file.startsWith('assets/')));
     const secondAssets = new Map([...second].filter(([file]) => file.startsWith('assets/')));
     assert.deepEqual(secondAssets, firstAssets, 'page edits reuse every unchanged asset');
@@ -131,7 +128,7 @@ test('default builds retain links and route into immutable releases', async () =
     const sourceScript = path.join(fixture, 'assets/language.js');
     await writeFile(sourceScript, (await readFile(sourceScript, 'utf8')) + '\nglobalThis.buildTest = true;');
     await build();
-    const third = await snapshot(path.join(fixture, 'dist'));
+    const third = await snapshot(path.join(fixture, 'dist', target));
     checkLinks(third);
     const nextScript = [...third.keys()].find((file) => file.endsWith('/language.js'));
     assert.notEqual(nextScript, script, 'changed scripts receive a new immutable path');

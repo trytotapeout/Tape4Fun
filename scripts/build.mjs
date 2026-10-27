@@ -9,7 +9,12 @@ import sharp from 'sharp';
 import { optimize } from 'svgo';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const outputDirectory = 'dist';
+const args = process.argv.slice(2);
+const target = args.find((arg) => arg.startsWith('--target='))?.slice('--target='.length) ?? 'web';
+if (!['web', 'chain'].includes(target) || args.some((arg) => !/^--target=(web|chain)$/.test(arg))) {
+  throw new Error('Usage: node scripts/build.mjs --target=web|chain');
+}
+const outputDirectory = `dist/${target}`;
 const dist = path.join(root, outputDirectory);
 const files = [];
 
@@ -105,36 +110,32 @@ function rewriteAssets(text, sourceFile, destinationFile) {
 }
 
 const entrySource = outputs.get('index.html').toString();
-outputs = new Map([...outputs]
-  .filter(([file]) => !file.startsWith('assets/'))
-  .map(([file, content]) => [file, Buffer.from(rewriteAssets(
-    content.toString(), file, `releases/pending/${file}`,
-  ))]));
-
-// Hash pages after resolving shared assets. A page change no longer versions
-// unchanged images and scripts. Relative page navigation stays within a release.
-const hash = createHash('sha256');
-for (const [file, content] of outputs) {
-  hash.update(JSON.stringify([file, content.length]));
-  hash.update(content);
-}
-const release = `releases/${hash.digest('hex')}`;
-const entry = rewriteAssets(entrySource, 'index.html', 'index.html').replace(
-  /\b(href|src)=(['"])\.\/(en|zh-cn)\//g,
-  `$1=$2./${release}/$3/`,
-);
-// Keep a versioned entry too: language pages link to ../index.html.
-outputs = new Map([...outputs].map(([file, content]) => [`${release}/${file}`, content]));
-// Replace pre-versioning URLs with small entry pages for the current release.
-// These paths stay mutable; the release files above remain immutable.
-for (const file of files.filter((file) => /^(en|zh-cn)\/.*\.html$/.test(file))) {
-  const target = path.posix.relative(path.posix.dirname(file), `${release}/${file}`);
-  const language = file.startsWith('zh-cn/') ? 'zh-CN' : 'en';
-  const label = language === 'zh-CN' ? '打开最新页面' : 'Open the latest page';
-  outputs.set(file, Buffer.from(`<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0;url=${target}"><title>Tape4Fun</title></head><body><a href="${target}">${label}</a><script>location.replace(${JSON.stringify(target)}+location.search+location.hash)</script></body></html>`));
+let release;
+if (target === 'chain') {
+  const pages = new Map([...outputs]
+    .filter(([file]) => !file.startsWith('assets/'))
+    .map(([file, content]) => [file, Buffer.from(rewriteAssets(
+      content.toString(), file, `releases/pending/${file}`,
+    ))]));
+  const hash = createHash('sha256');
+  for (const [file, content] of pages) {
+    hash.update(JSON.stringify([file, content.length]));
+    hash.update(content);
+  }
+  release = `releases/${hash.digest('hex')}`;
+  const entry = rewriteAssets(entrySource, 'index.html', 'index.html').replace(
+    /\b(href|src)=(['"])\.\/(en|zh-cn)\//g,
+    `$1=$2./${release}/$3/`,
+  );
+  outputs = new Map([...pages].map(([file, content]) => [`${release}/${file}`, content]));
+  outputs.set('index.html', Buffer.from(entry));
+} else {
+  // Web pages keep stable URLs; only shared assets have immutable paths.
+  outputs = new Map([...outputs]
+    .filter(([file]) => !file.startsWith('assets/'))
+    .map(([file, content]) => [file, Buffer.from(rewriteAssets(content.toString(), file, file))]));
 }
 for (const item of assets) outputs.set(...item);
-outputs.set('index.html', Buffer.from(entry));
 after = [...outputs.values()].reduce((total, content) => total + content.length, 0);
 
 for (const [file, content] of outputs) {
@@ -143,4 +144,5 @@ for (const [file, content] of outputs) {
   await writeFile(destination, content);
 }
 console.log(`\nBuilt ${outputs.size} files in ${outputDirectory}: ${(before / 1024).toFixed(1)} → ${(after / 1024).toFixed(1)} KiB (${((1 - after / before) * 100).toFixed(1)}% smaller)`);
-console.log(`Release: ${release}`);
+console.log(`Target: ${target}`);
+if (release) console.log(`Release: ${release}`);

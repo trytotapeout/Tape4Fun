@@ -19,19 +19,32 @@ npm run dev
 
 Then open <http://localhost:8000/>.
 
-Build the production site and preview it:
+Build and preview the conventional website:
 
 ```bash
-npm run build
-npm run preview
+npm run build:web
+npm run preview:web
 ```
 
-The build recreates `dist/` with a replaceable root `index.html`, versioned pages under `releases/<SHA-256>/`, and shared resources under `assets/<content SHA-256>/<filename>`. It minifies HTML, inline CSS/JavaScript, standalone CSS/JavaScript, and SVGs. PNG/JPEG images become WebP at quality 85 without resizing; local HTML/CSS references are updated automatically. Image archives with no asset-path references in the built HTML, CSS, JavaScript, or SVG are omitted. Source files stay unchanged. Other assets are copied, and hidden files are excluded. The build prints per-file sizes and total savings.
+`npm run build` and `npm run preview` are aliases for the web target. Upload the **contents of `dist/web/`** to the web root. HTML pages have stable paths such as `/zh-cn/tapecode.html`, and the language entry only selects `/en/index.html` or `/zh-cn/index.html`. Navigation never enters a release directory. HTML should use `Cache-Control: no-cache` to revalidate on each visit; assets use content-hashed paths and can be cached for a year with `immutable`.
 
-Upload the **contents of `dist/`** to your static web host. `deploy.sh` builds first and uploads this directory to the existing server (it also retains the existing Git commit/push steps). Node.js is only needed locally to build; the server serves static files. Gzip/Brotli transport compression can additionally be enabled on the host.
+`deploy.sh` builds and deploys the web target to the existing server. It uploads assets first, language pages next, and the root entry last. It retains Git commit/push, skipping the commit when nothing has changed. It also uploads `config/nginx-entry.conf` to `/etc/nginx/snippets/tape4fun-entry.conf`, validates Nginx, and reloads it. The HTTPS server block must include that snippet once. The snippet redirects historical `/releases/<hash>/...` HTML URLs to the stable web pages, preserving query strings; browsers retain fragments across these redirects. Existing release files remain on disk, but the conventional website serves their current equivalents through redirects.
 
-The unversioned `en/*.html` and `zh-cn/*.html` files are compatibility redirects for old bookmarks. Upload them on each deployment so those URLs open the current release instead of stale pages. They preserve query strings and fragments when JavaScript is enabled; a refresh tag and a visible link provide fallbacks. `deploy.sh` uploads assets and releases first, then these redirects, and finally the root entry. Existing URLs under `releases/` intentionally keep their original content.
+Build and preview the on-chain package separately:
+
+```bash
+npm run build:chain
+npm run preview:chain
+```
+
+Upload the **contents of `dist/chain/`**, with `index.html` at the upload root. This target supports chain hosting that only allows replacing the root entry: pages are under `releases/<SHA-256>/`, while each asset has its own content-hashed path. Publish assets and release files before replacing root `index.html`. Keep old files so existing on-chain links continue working. Identical builds reuse the same paths; page-only edits preserve unchanged asset paths. Actual gas estimates must be checked in the publisher. The Nginx web redirect rules do not apply to the on-chain package.
+
+Each target rebuilds only its own output directory, so both packages can coexist. Both minify HTML, CSS, JavaScript, and SVGs, convert PNG/JPEG images to WebP at quality 85 without resizing, and omit unused image archives. Source files stay unchanged. Node.js is required only locally; both outputs are static files.
+
+Run the build/navigation regression tests:
+
+```bash
+npm run test:build
+```
 
 The site explains public information and links to primary sources. Verify technical details, live parameters, and product status against official contracts and websites.
-
-Upload the **contents of `dist/`**, with `index.html` at the upload root. This layout supports chain hosting that only allows replacing the root `index.html`. The release hash comes from compiled pages with their resource links: identical builds reuse the same paths and bytes; a changed page gets a new page release directory. Each resource is hashed independently, so page-only edits preserve resource paths and allow the publisher to reuse existing images and scripts. Pages are still versioned together because they link to one another. The first upload after adopting this layout introduces new resource paths; later uploads can reuse them. Root links and automatic language routing point to the current release. Publish assets and release files before replacing the root entry if uploading in stages. Keep older files on the host so existing links continue working. `deploy.sh` uploads assets and releases first and then the root entry. Actual gas estimates must be checked in the publisher; byte savings do not directly predict gas savings.

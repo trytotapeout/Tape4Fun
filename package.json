@@ -4,9 +4,13 @@
   "description": "An independent bilingual reference to TapeOut infrastructure and valuable products across its surrounding ecosystem.",
   "scripts": {
     "dev": "http-server . -p 8000 -c-1",
-    "build": "node scripts/build.mjs",
+    "build": "npm run build:web",
+    "build:web": "node scripts/build.mjs --target=web",
+    "build:chain": "node scripts/build.mjs --target=chain",
     "test:build": "node --test scripts/build.test.mjs",
-    "preview": "http-server dist -p 8000 -c-1"
+    "preview": "npm run preview:web",
+    "preview:web": "http-server dist/web -p 8000 -c-1",
+    "preview:chain": "http-server dist/chain -p 8000 -c-1"
   },
   "devDependencies": {
     "clean-css": "^5.3.3",
