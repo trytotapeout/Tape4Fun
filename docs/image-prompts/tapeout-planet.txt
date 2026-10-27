@@ -1,0 +1,14 @@
+Use case: illustration-story with a clear educational infographic structure.
+Asset type: final illustration to embed in a bilingual Chinese/English beginner article on Tape4Fun.
+Primary request: Explain the article's imaginary TapeOut planet through three connected scenes: land plots (NAND/LATCH gates), a deed (circuit NFT), and a house (circuit container). Show the difference between circuit materials, BEM payments, and network gas without implying they are the same.
+Style: polished editorial cutaway illustration, delicate ink outlines, soft gouache shading, restrained isometric perspective, friendly and thoughtful rather than cartoonish. Warm ivory paper #f7f6f2, charcoal lettering #262522, terracotta accents #c75d3c, muted sage landscapes and blue water. Match a quiet literary technology guide, not a crypto advertisement.
+Composition: landscape 1536 by 1024, generous margins, strong hierarchy, three equal scenes from left to right across the middle connected by two simple terracotta arrows; a title at top; a separate compact two-part legend at bottom. Crisp, large, readable lettering. All labels bilingual using exactly the text below. No dense explanatory paragraphs.
+Title verbatim: "TapeOut 星球" with a smaller subtitle "从地皮、地契到链上应用".
+Scene 1: a small set of green land tiles with visible water channels, one sluice gate and one reservoir, labeled "地皮 · Gates" and below it "NAND / LATCH". Show schematic waterworks as a metaphor, not real silicon manufacture.
+First arrow label: "流片 · Fabricate".
+Scene 2: a paper deed with a simple circuit netlist diagram and small NFT seal, next to a cultivated field assembled from the land tiles. Label "地契 · Circuit NFT". Do not use coin symbolism for the deed.
+Second arrow label: "开通 · Activate".
+Scene 3: a small transparent-walled house on the same field, showing folders, a webpage sheet and a locked file box inside. Label "房子 · Container". Small tiny numbered file sheets can illustrate versions; no promise of deletion or secrecy of public files.
+Bottom legend: two clearly separate illustrations, one small BEM token handed to a shop to represent a payment and one network-road toll booth for gas. Labels exactly "钱 · BEM" and "过路费 · Gas", with "X Layer: OKB" beneath the Gas label. Both separate from the NAND/LATCH materials in the main scene. Do not draw an arrow converting BEM into gates or NFTs.
+Footer small text exactly "比喻示意 · A learning metaphor".
+Constraints: no financial return claims, no trading charts, no logos, no people, no real-world ownership claims, no QR codes, no watermarks. Accurate spelling of NAND, LATCH, BEM, Gas, TapeOut, NFT, X Layer and OKB. Use clear simplified Chinese glyphs. Keep the three-scene flow and two-part legend uncluttered.
