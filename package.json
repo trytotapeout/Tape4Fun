@@ -8,6 +8,7 @@
     "build:web": "node scripts/build.mjs --target=web",
     "build:chain": "node scripts/build.mjs --target=chain",
     "test:build": "node --test scripts/build.test.mjs",
+    "test:share": "node --test scripts/share.test.mjs",
     "preview": "npm run preview:web",
     "preview:web": "http-server dist/web -p 8000 -c-1",
     "preview:chain": "http-server dist/chain -p 8000 -c-1"
