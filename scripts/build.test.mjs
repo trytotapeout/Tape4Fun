@@ -75,6 +75,20 @@ function checkLegacyEntries(files) {
   }
 }
 
+function checkBrandHomeLinks(files) {
+  let checked = 0;
+  for (const [file, html] of files) {
+    if (!/^releases\/[^/]+\/(en|zh-cn)\/.*\.html$/.test(file)) continue;
+    const link = html.match(/<a class="site-brand" href="([^"]+)"/);
+    assert.ok(link, `missing brand link: ${file}`);
+    for (const base of ['https://test.invalid/', 'https://test.invalid/subsite/']) {
+      assert.equal(new URL(link[1], new URL(file, base)).href, new URL('index.html', base).href);
+    }
+    checked++;
+  }
+  assert.ok(checked >= 14);
+}
+
 test('default builds retain links and route into immutable releases', async () => {
   const fixture = await mkdtemp(path.join(tmpdir(), 'tape4fun-build-'));
   try {
@@ -91,6 +105,7 @@ test('default builds retain links and route into immutable releases', async () =
     assert.ok(first.has('en/ecosystem.html'));
     assert.ok(first.has('zh-cn/ecosystem.html'));
     checkLegacyEntries(first);
+    checkBrandHomeLinks(first);
     assert.ok([...first.keys()].some((file) => file.endsWith('/tapeout-logo.jpg.webp')));
     assert.ok(![...first.keys()].some((file) => file.endsWith('/tapqq-v1-mobile.jpg.webp')));
     checkRouter(first, 'https://test.invalid/', script);
@@ -104,6 +119,7 @@ test('default builds retain links and route into immutable releases', async () =
     const second = await snapshot(path.join(fixture, 'dist'));
     checkLinks(second);
     checkLegacyEntries(second);
+    checkBrandHomeLinks(second);
     assert.notEqual(second.get('zh-cn/ecosystem.html'), first.get('zh-cn/ecosystem.html'));
     assert.notEqual(second.get('index.html'), first.get('index.html'));
     const firstAssets = new Map([...first].filter(([file]) => file.startsWith('assets/')));

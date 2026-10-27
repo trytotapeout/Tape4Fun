@@ -94,13 +94,14 @@ for (const [file, content] of outputs) {
 }
 
 function rewriteAssets(text, sourceFile, destinationFile) {
+  const home = path.posix.relative(path.posix.dirname(destinationFile), 'index.html');
   return text.replace(/(?:\.\.?\/)*assets\/[\w./-]+/g, (reference) => {
     const original = path.posix.normalize(path.posix.join(path.posix.dirname(sourceFile), reference));
     const target = assetPaths.get(original);
     if (!target) return reference;
     const relative = path.posix.relative(path.posix.dirname(destinationFile), target);
     return relative.startsWith('.') ? relative : `./${relative}`;
-  });
+  }).replace(/(<a class="site-brand" href=")[^"]+"/g, `$1${home}"`);
 }
 
 const entrySource = outputs.get('index.html').toString();
