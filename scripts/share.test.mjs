@@ -27,9 +27,9 @@ for (const [name, current, canonical, expected] of [
       window: { gtag: (...args) => events.push(args) },
     });
     const intent = new URL(link.href);
-    assert.equal(intent.origin + intent.pathname, 'https://x.com/intent/tweet');
-    assert.equal(intent.searchParams.get('text'), title);
-    assert.equal(intent.searchParams.get('url'), expected);
+    assert.equal(intent.origin + intent.pathname, 'https://twitter.com/intent/tweet');
+    assert.equal(intent.searchParams.get('text'), `${title}\n\n${expected}\n\n#tapeout #tapekit #bem`);
+    assert.equal([...intent.searchParams.keys()].join(','), 'text');
     assert.equal(events.length, 0, 'loading an article does not count as a share click');
     click();
     assert.equal(events.length, 1);
@@ -46,6 +46,22 @@ test('X sharing works without analytics', () => {
     document: { title: 'TapeKit', querySelectorAll: () => [link], querySelector: () => null },
     window: {},
   });
-  assert.equal(new URL(link.href).searchParams.get('text'), 'TapeKit');
+  assert.equal(new URL(link.href).searchParams.get('text'), 'TapeKit\n\nhttps://example.org/en/tapekit.html\n\n#tapeout #tapekit #bem');
   assert.doesNotThrow(click);
 });
+
+for (const language of ['zh-cn', 'en']) {
+  test(`${language} pages have social titles and usable share links without JavaScript`, async () => {
+    for (const name of ['tapeout', 'tapehub', 'tapekit', 'tapesend', 'tapecode', 'ecosystem', 'getting-started']) {
+      const html = await readFile(new URL(`../${language}/${name}.html`, import.meta.url), 'utf8');
+      assert.match(html, /<meta property="og:title" content="[^"]+"/);
+      assert.match(html, /<meta name="twitter:title" content="[^"]+"/);
+      const href = html.match(/<a class="share-x"[^>]* href="([^"]+)"/)[1];
+      const intent = new URL(href.replaceAll('&amp;', '&'));
+      const text = intent.searchParams.get('text');
+      assert.ok(text.includes(`https://tape4fun.com/${language}/${name}.html`));
+      assert.ok(text.endsWith('#tapeout #tapekit #bem'));
+      assert.ok(text.split('\n')[0].length > 5);
+    }
+  });
+}

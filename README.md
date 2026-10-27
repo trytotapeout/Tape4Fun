@@ -50,4 +50,4 @@ npm run test:share
 
 The site explains public information and links to primary sources. Verify technical details, live parameters, and product status against official contracts and websites.
 
-Article/detail pages include a localized X share link at the end. The link opens X’s composer with the article title and canonical URL, removes preview/query parameters and fragments, and resolves against the current host for web and chain gateways. Readers confirm publication on X. Existing Google Analytics installations record a `share` click event; the button also works without analytics.
+Article/detail pages include a localized X share link at the end. The link opens X’s composer with the article title, canonical URL, and `#tapeout #tapekit #bem` in one prefilled text field, removes preview/query parameters and fragments, and resolves against the current host for web and chain gateways. Readers confirm publication on X. Existing Google Analytics installations record a `share` click event; the button also works without analytics.

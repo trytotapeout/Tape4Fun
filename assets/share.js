@@ -11,9 +11,11 @@
   article.hash = '';
 
   for (const link of links) {
-    const intent = new URL('https://x.com/intent/tweet');
-    intent.searchParams.set('text', link.dataset.shareTitle || document.title);
-    intent.searchParams.set('url', article.href);
+    const title = link.dataset.shareTitle || document.title;
+    const text = `${title}\n\n${article.href}\n\n#tapeout #tapekit #bem`;
+    // Keep the whole draft in one text parameter so it survives X redirects.
+    const intent = new URL('https://twitter.com/intent/tweet');
+    intent.search = `?text=${encodeURIComponent(text)}`;
     link.href = intent.href;
     link.addEventListener('click', () => {
       if (typeof window.gtag === 'function') {
